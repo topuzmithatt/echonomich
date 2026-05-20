@@ -31,17 +31,19 @@ export async function POST(request: Request) {
     const validCardIds = validCards.map((c) => c.id);
 
     // Mevcut kartları temizle ve yenilerini ekle (Transaction içinde)
-    await prisma.$transaction([
-      prisma.userCard.deleteMany({
+    await prisma.$transaction(async (tx) => {
+      await tx.userCard.deleteMany({
         where: { userId: user.id },
-      }),
-      prisma.userCard.createMany({
-        data: validCardIds.map((cardId) => ({
-          userId: user.id,
-          cardId,
-        })),
-      }),
-    ]);
+      });
+      if (validCardIds.length > 0) {
+        await tx.userCard.createMany({
+          data: validCardIds.map((cardId) => ({
+            userId: user.id,
+            cardId,
+          })),
+        });
+      }
+    });
 
     return NextResponse.json({
       success: true,
