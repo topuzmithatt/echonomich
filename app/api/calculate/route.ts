@@ -145,7 +145,18 @@ export async function POST(req: NextRequest) {
           /\bücretsiz\b|\bbedava\b|hediye\s*ders|hediye\s*üyelik|hediye\s*prime/i.test(campaign.title.toLowerCase());
 
         // Bu kampanya genel / her yerde geçerli bir kampanya mı?
-        const isUniversalCampaign = campaign.category.name === 'Diğer' || isQRorNFC;
+        const hasGeneralSpendKeywords = /her\s*(?:alışveriş|harcama)|alışverişlerinize|harcamalarınıza|sektör\s*fark\s*etmeksizin|sektör\s*dışı/i.test(combinedTextForTip);
+        
+        // Detaylı kısıtlayıcı sektör ve marka kelimeleri regex'i
+        const hasNicheKeywords = /kitap|kırtasiye|eğitim|okul|dijital\s*platform|netflix|spotify|youtube|amazon|prime|kültür|sanat|tiyatro|sinema|konser|bilet|biletinial|sigorta|vergi|mtv|motorlu\s*taşıt|fatura|aidat|kira|tapu|bağış|mobilya|dekorasyon|yapı\s*market|beyaz\s*eşya|optik|sağlık|eczane|otomotiv|lastik|servis|araç\s*kiralama|kiralama|otel|tatil|uçak|turizm|seyahat|giyim|ayakkabı|aksesuar|kozmetik|elektronik|teknoloji|akaryakıt|yakıt|benzin|istasyon|oyun|gaming|game|tasarım|yazılım|oto|yıkama|petshop|veteriner|pet|spa|kuaför|güzellik|hizmet|kargo|kurye|finans|kredi|porland|dyson|karaca|samsung|trendyol|hepsiburada|n11|getir|yemeksepeti|watsons|gratis|boyner|lcw|koton|zara|defacto|flo|ipekyol|hm|decathlon|ikea|uber|starbucks|kahve|mado|kahve\s*dünyası|ulaşım|metro|otobüs|minibüs|taksi|bitaksi|yolculuk/i.test(combinedTextForTip);
+
+        // Kampanyanın genel/universal olabilmesi için ya QR/NFC içermeli ya da "Diğer" kategorisinde olup kısıtlayıcı kelimeler içermemelidir
+        const isUniversalCampaign = isQRorNFC || (campaign.category.name === 'Diğer' && hasGeneralSpendKeywords && !hasNicheKeywords);
+
+        // Seçilen veya otomatik algılanan bir hedef kategori varsa ve kampanya bu kategoriye dahil değilse, universal (genel harcama) olmak zorundadır
+        if (targetCategoryId && campaign.categoryId !== targetCategoryId && !isUniversalCampaign) {
+          return null;
+        }
 
         // Alaka düzeyi puanı hesaplama (Match Score)
         let matchScore = 0;
