@@ -803,11 +803,11 @@ export default function Calculator({ categories, initialUser, campaignCount, ban
                                   fontSize: '0.85rem',
                                   color: '#93c5fd',
                                   display: 'flex',
-                                  alignItems: 'center',
+                                  alignItems: 'flex-start',
                                   gap: '0.5rem'
                                 }}>
-                                  <span>💡</span>
-                                  <span>
+                                  <span style={{ flexShrink: 0 }}>💡</span>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
                                     {camp.calculatedReward > maxOwnedReward ? (
                                       <>
                                         Bu karta sahip olsaydınız, mevcut kartlarınıza kıyasla <strong>+{Number((camp.calculatedReward - maxOwnedReward).toFixed(2))} TL</strong> daha fazla kazanabilirdiniz!
@@ -817,7 +817,7 @@ export default function Calculator({ categories, initialUser, campaignCount, ban
                                         Bu kartla <strong>{camp.calculatedReward} TL</strong> kazanç sağlayabilirdiniz.
                                       </>
                                     )}
-                                  </span>
+                                  </div>
                                 </div>
                               )}
 
@@ -875,8 +875,8 @@ export default function Calculator({ categories, initialUser, campaignCount, ban
 
                                     {conditionLines.map((line, lineIdx) => (
                                       <div key={lineIdx} className="details-row">
-                                        <span className="details-row-bullet">•</span>
-                                        <span>{line}</span>
+                                        <span className="details-row-bullet" style={{ flexShrink: 0 }}>•</span>
+                                        <span style={{ flex: 1, minWidth: 0 }}>{line}</span>
                                       </div>
                                     ))}
                                   </div>

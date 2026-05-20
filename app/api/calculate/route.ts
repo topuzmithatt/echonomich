@@ -58,21 +58,45 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Kampanyaları getiriyoruz (Harcama tutarına uyanlar VEYA minimum limit gerektirmeyen ücretsiz ayrıcalıklar)
+    // E-Ticaret ve online alışverişe ait arama terimleri algılaması (QR ödeme fiziki POS gerektirdiği için online'da geçerli olamaz)
+    const isOnlineSearch = /(e-ticaret|eticaret|internet|online|web|hepsiburada|trendyol|n11|amazon|pazarama|ciceksepeti|çiçeksepeti|n11|getir|yemeksepeti|migros\s*sanal|sanal\s*market)/i.test(searchText);
+
+    // Kampanyaları getiriyoruz
+    // Harcama tutarına uyanlar VE (seçilen kategoriye uyanlar VEYA genel/universal kampanyalar)
     const qualifiedCampaigns = await prisma.campaign.findMany({
       where: {
-        ...(targetCategoryId ? { categoryId: targetCategoryId } : {}),
-        OR: [
+        AND: [
+          // Kategori koşulu: ya seçilen kategori, ya "Diğer" (genel), ya da QR/Temassız/NFC içeren kampanyalar
           {
-            minAmount: {
-              lte: amount,
-            },
+            OR: [
+              ...(targetCategoryId ? [{ categoryId: targetCategoryId }] : []),
+              {
+                category: {
+                  name: 'Diğer'
+                }
+              },
+              { title: { contains: 'QR' } },
+              { title: { contains: 'temassız' } },
+              { title: { contains: 'NFC' } },
+              { title: { contains: 'karekod' } },
+              { title: { contains: 'mobil ödeme' } },
+              { rawText: { contains: 'QR' } },
+              { rawText: { contains: 'temassız' } },
+              { rawText: { contains: 'NFC' } },
+              { rawText: { contains: 'karekod' } },
+              { rawText: { contains: 'mobil ödeme' } },
+            ]
           },
+          // Harcama limit koşulu
           {
-            minAmount: 0,
+            OR: [
+              { minAmount: { lte: amount } },
+              { minAmount: 0 }
+            ]
           },
-        ],
-        ...(rewardTypes && rewardTypes.length > 0 ? { rewardType: { in: rewardTypes } } : {}),
+          // İstenen ödül türleri
+          ...(rewardTypes && rewardTypes.length > 0 ? [{ rewardType: { in: rewardTypes } }] : [])
+        ]
       },
       include: {
         bank: { select: { id: true, name: true } },
@@ -84,91 +108,111 @@ export async function POST(req: NextRequest) {
     const queryWords = searchText ? searchText.split(/\s+/).filter(w => w.length > 1) : [];
 
     // Sonuçları dinamik ödül ve alaka düzeyine göre puanlıyoruz
-    const formattedCampaigns = qualifiedCampaigns.map((campaign) => {
-      let calculatedReward = campaign.rewardAmount;
-      if (campaign.isPercentage) {
-        calculatedReward = amount * (campaign.rewardAmount / 100);
-        if (campaign.maxAmount && campaign.maxAmount > 0) {
-          calculatedReward = Math.min(calculatedReward, campaign.maxAmount);
-        }
-      }
-
-      // Ödeme yöntemi ve ek puan ipucu tespiti
-      let paymentMethodTip: string | null = null;
-      const combinedTextForTip = `${campaign.title} ${campaign.rawText}`.toLowerCase();
-      if (/qr\s*kod|qr\s*ile|qr\s*ödeme/i.test(combinedTextForTip)) {
-        paymentMethodTip = '📱 QR Kod ile Ödeme Avantajı';
-      } else if (/mobil\s*temassız|nfc|mobil\s*ödeme/i.test(combinedTextForTip)) {
-        paymentMethodTip = '📲 Mobil Temassız / NFC Ödeme Avantajı';
-      } else if (/temassız\s*ödeme/i.test(combinedTextForTip)) {
-        paymentMethodTip = '💳 Temassız Ödeme Avantajı';
-      } else if (/garantipay/i.test(combinedTextForTip)) {
-        paymentMethodTip = '🟢 GarantiPay ile Ödeme Avantajı';
-      }
-
-      const isFreePrivilege = campaign.minAmount === 0 || 
-        /\bücretsiz\b|\bbedava\b|hediye\s*ders|hediye\s*üyelik|hediye\s*prime/i.test(campaign.title.toLowerCase());
-
-      // Alaka düzeyi puanı hesaplama (Match Score)
-      let matchScore = 0;
-      if (searchText) {
-        const combinedSearchText = `${campaign.title} ${campaign.rawText} ${campaign.category.name} ${campaign.bank.name}`.toLowerCase();
-        const titleLower = campaign.title.toLowerCase();
-
-        // 1. Birebir kelime grubu eşleşmesi
-        if (combinedSearchText.includes(searchText)) {
-          matchScore += 150;
+    const formattedCampaigns = qualifiedCampaigns
+      .map((campaign) => {
+        let calculatedReward = campaign.rewardAmount;
+        if (campaign.isPercentage) {
+          calculatedReward = amount * (campaign.rewardAmount / 100);
+          if (campaign.maxAmount && campaign.maxAmount > 0) {
+            calculatedReward = Math.min(calculatedReward, campaign.maxAmount);
+          }
         }
 
-        // 2. Kelime bazlı eşleşmeler
-        queryWords.forEach(word => {
-          if (combinedSearchText.includes(word)) {
-            matchScore += 20;
-          }
-          // 3. Marka/Başlık eşleşmesi (Arama terimindeki kelime başlıktaysa büyük bonus)
-          if (titleLower.includes(word)) {
-            matchScore += 500;
-          }
-        });
-      }
+        // Ödeme yöntemi ve ek puan ipucu tespiti
+        let paymentMethodTip: string | null = null;
+        const combinedTextForTip = `${campaign.title} ${campaign.rawText}`.toLowerCase();
+        
+        const isQRorNFC = /qr\s*kod|qr\s*ile|qr\s*ödeme|karekod|nfc|mobil\s*temassız|mobil\s*temassiz/i.test(combinedTextForTip);
+        const isOnlineOnlyCampaign = /internette|internet\s*üzerinden|online|web|dijital/i.test(combinedTextForTip);
+        const isPhysicalOnlyQR = isQRorNFC && !isOnlineOnlyCampaign;
 
-      return {
-        id: campaign.id,
-        title: campaign.title,
-        rawText: campaign.rawText,
-        rewardAmount: campaign.rewardAmount,
-        calculatedReward: Number(calculatedReward.toFixed(2)),
-        rewardType: campaign.rewardType,
-        isPercentage: campaign.isPercentage,
-        minAmount: campaign.minAmount,
-        maxAmount: campaign.maxAmount,
-        isNewCustomerOnly: campaign.isNewCustomerOnly,
-        requiresEnrollment: campaign.requiresEnrollment,
-        matchScore: matchScore,
-        isFreePrivilege,
-        paymentMethodTip,
-        isOwnedByUser: (() => {
-          if (!isLoggedIn) return true;
-          const campaignCardIds = campaign.campaignCards.map((cc) => cc.cardId);
-          if (campaignCardIds.length > 0) {
-            return campaignCardIds.some((id) => ownedCardIds.includes(id));
+        // E-Ticaret / Online aramalarında fiziki POS gerektiren QR kampanyalarını hariç tutuyoruz
+        if (isOnlineSearch && isPhysicalOnlyQR) {
+          return null;
+        }
+
+        if (isQRorNFC) {
+          paymentMethodTip = '📱 QR Kod ile Ödeme Avantajı';
+        } else if (/mobil\s*temassız|nfc|mobil\s*ödeme/i.test(combinedTextForTip)) {
+          paymentMethodTip = '📲 Mobil Temassız / NFC Ödeme Avantajı';
+        } else if (/temassız\s*ödeme/i.test(combinedTextForTip)) {
+          paymentMethodTip = '💳 Temassız Ödeme Avantajı';
+        } else if (/garantipay/i.test(combinedTextForTip)) {
+          paymentMethodTip = '🟢 GarantiPay ile Ödeme Avantajı';
+        }
+
+        const isFreePrivilege = campaign.minAmount === 0 || 
+          /\bücretsiz\b|\bbedava\b|hediye\s*ders|hediye\s*üyelik|hediye\s*prime/i.test(campaign.title.toLowerCase());
+
+        // Bu kampanya genel / her yerde geçerli bir kampanya mı?
+        const isUniversalCampaign = campaign.category.name === 'Diğer' || isQRorNFC;
+
+        // Alaka düzeyi puanı hesaplama (Match Score)
+        let matchScore = 0;
+        if (searchText) {
+          const combinedSearchText = `${campaign.title} ${campaign.rawText} ${campaign.category.name} ${campaign.bank.name}`.toLowerCase();
+          const titleLower = campaign.title.toLowerCase();
+
+          // 1. Birebir kelime grubu eşleşmesi
+          if (combinedSearchText.includes(searchText)) {
+            matchScore += 150;
           }
-          return ownedBankIds.includes(campaign.bank.id);
-        })(),
-        bank: {
-          id: campaign.bank.id,
-          name: campaign.bank.name,
-        },
-        category: {
-          id: campaign.category.id,
-          name: campaign.category.name,
-        },
-        warningTags: {
-          newCustomerWarning: campaign.isNewCustomerOnly ? 'Yalnızca yeni müşterilere özel' : null,
-          enrollmentWarning: campaign.requiresEnrollment ? 'Katılım / Başvuru gerektirir' : null,
-        },
-      };
-    });
+
+          // 2. Kelime bazlı eşleşmeler
+          queryWords.forEach(word => {
+            if (combinedSearchText.includes(word)) {
+              matchScore += 20;
+            }
+            // 3. Marka/Başlık eşleşmesi (Arama terimindeki kelime başlıktaysa büyük bonus)
+            if (titleLower.includes(word)) {
+              matchScore += 500;
+            }
+          });
+
+          // 4. Genel/Universal kampanya ise aramada her zaman çıkabilmesi için taban puan
+          if (matchScore === 0 && isUniversalCampaign) {
+            matchScore = 10;
+          }
+        }
+
+        return {
+          id: campaign.id,
+          title: campaign.title,
+          rawText: campaign.rawText,
+          rewardAmount: campaign.rewardAmount,
+          calculatedReward: Number(calculatedReward.toFixed(2)),
+          rewardType: campaign.rewardType,
+          isPercentage: campaign.isPercentage,
+          minAmount: campaign.minAmount,
+          maxAmount: campaign.maxAmount,
+          isNewCustomerOnly: campaign.isNewCustomerOnly,
+          requiresEnrollment: campaign.requiresEnrollment,
+          matchScore: matchScore,
+          isFreePrivilege,
+          paymentMethodTip,
+          isOwnedByUser: (() => {
+            if (!isLoggedIn) return true;
+            const campaignCardIds = campaign.campaignCards.map((cc) => cc.cardId);
+            if (campaignCardIds.length > 0) {
+              return campaignCardIds.some((id) => ownedCardIds.includes(id));
+            }
+            return ownedBankIds.includes(campaign.bank.id);
+          })(),
+          bank: {
+            id: campaign.bank.id,
+            name: campaign.bank.name,
+          },
+          category: {
+            id: campaign.category.id,
+            name: campaign.category.name,
+          },
+          warningTags: {
+            newCustomerWarning: campaign.isNewCustomerOnly ? 'Yalnızca yeni müşterilere özel' : null,
+            enrollmentWarning: campaign.requiresEnrollment ? 'Katılım / Başvuru gerektirir' : null,
+          },
+        };
+      })
+      .filter((c): c is any => c !== null);
 
     // Sıralama kriteri: Önce en yüksek arama eşleşmesi (alaka), sonra en yüksek ödül
     formattedCampaigns.sort((a, b) => b.matchScore - a.matchScore || b.calculatedReward - a.calculatedReward);
