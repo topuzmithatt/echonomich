@@ -3,8 +3,8 @@ import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { prisma } from './prisma';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'cardoptima-secret-key-123456789';
-const COOKIE_NAME = 'cardoptima_session';
+const JWT_SECRET = process.env.JWT_SECRET || 'echonomich-secret-key-123456789';
+const COOKIE_NAME = 'echonomich_session';
 
 export async function hashPassword(password: string): Promise<string> {
   const salt = await bcrypt.genSalt(10);

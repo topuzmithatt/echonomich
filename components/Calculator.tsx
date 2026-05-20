@@ -144,7 +144,7 @@ export default function Calculator({ categories, initialUser, campaignCount, ban
       {/* Header Alanı */}
       <header>
         <div className="logo" style={{ cursor: 'pointer' }}>
-          CardOptima
+          Echonomich
           <span className="logo-badge">
             {user ? 'Kişiselleştirilmiş' : 'Çoklu Banka Destekli'}
           </span>
