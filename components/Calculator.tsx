@@ -618,26 +618,32 @@ export default function Calculator({ categories, initialUser, campaignCount, ban
                       <div className="filter-row-bottom">
                         <div className="toggles-group">
                           <label className="toggle-item">
-                            <input
-                              type="checkbox"
-                              checked={excludeEnrollment}
-                              onChange={(e) => {
-                                setExcludeEnrollment(e.target.checked);
-                                setVisibleCount(20);
-                              }}
-                            />
+                            <div className="switch">
+                              <input
+                                type="checkbox"
+                                checked={excludeEnrollment}
+                                onChange={(e) => {
+                                  setExcludeEnrollment(e.target.checked);
+                                  setVisibleCount(20);
+                                }}
+                              />
+                              <span className="slider"></span>
+                            </div>
                             <span>Katılım Gerekmesin</span>
                           </label>
 
                           <label className="toggle-item">
-                            <input
-                              type="checkbox"
-                              checked={excludeNewCustomer}
-                              onChange={(e) => {
-                                setExcludeNewCustomer(e.target.checked);
-                                setVisibleCount(20);
-                              }}
-                            />
+                            <div className="switch">
+                              <input
+                                type="checkbox"
+                                checked={excludeNewCustomer}
+                                onChange={(e) => {
+                                  setExcludeNewCustomer(e.target.checked);
+                                  setVisibleCount(20);
+                                }}
+                              />
+                              <span className="slider"></span>
+                            </div>
                             <span>Herkese Açık (Yeni Üyelik Şartı Olmayan)</span>
                           </label>
                         </div>
