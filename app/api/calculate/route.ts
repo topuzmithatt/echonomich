@@ -76,35 +76,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // E-Ticaret ve online alışverişe ait arama terimleri algılaması (QR ödeme fiziki POS gerektirdiği için online'da geçerli olamaz)
-    const isOnlineSearch = /(e-ticaret|eticaret|internet|online|web|hepsiburada|trendyol|n11|amazon|pazarama|ciceksepeti|çiçeksepeti|n11|getir|yemeksepeti|migros\s*sanal|sanal\s*market)/i.test(searchText);
+    // E-Ticaret / Online alışveriş araması tespiti (QR fiziksel POS gerektirir, online'da geçersiz)
+    const isOnlineSearch = /(e-ticaret|eticaret|internet|online|web|hepsiburada|trendyol|n11|amazon|pazarama|ciceksepeti|çiçeksepeti|getir|yemeksepeti|migros\s*sanal|sanal\s*market)/i.test(searchText);
 
-    // Kampanyaları getiriyoruz
-    // Harcama tutarına uyanlar VE (seçilen kategoriye uyanlar VEYA genel/universal kampanyalar)
+    // ─────────────────────────────────────────────────────────────────
+    // TEMEL KURAL: Kampanyaları sadece harcama tutarına ve (varsa) ödül
+    // türüne göre çek. Kategori/QR filtrelerini JS katmanında uygula.
+    // Bu sayede "QR içerdiği için her yerde göster" saçmalığından kurtuluruz.
+    // ─────────────────────────────────────────────────────────────────
     const qualifiedCampaigns = await prisma.campaign.findMany({
       where: {
         AND: [
-          // Kategori koşulu: ya seçilen kategori, ya "Diğer" (genel), ya da QR/Temassız/NFC içeren kampanyalar
-          {
-            OR: [
-              ...(targetCategoryId ? [{ categoryId: targetCategoryId }] : []),
-              {
-                category: {
-                  name: 'Diğer'
-                }
-              },
-              { title: { contains: 'QR' } },
-              { title: { contains: 'temassız' } },
-              { title: { contains: 'NFC' } },
-              { title: { contains: 'karekod' } },
-              { title: { contains: 'mobil ödeme' } },
-              { rawText: { contains: 'QR' } },
-              { rawText: { contains: 'temassız' } },
-              { rawText: { contains: 'NFC' } },
-              { rawText: { contains: 'karekod' } },
-              { rawText: { contains: 'mobil ödeme' } },
-            ]
-          },
           // Harcama limit koşulu
           {
             OR: [
@@ -125,9 +107,57 @@ export async function POST(req: NextRequest) {
 
     const queryWords = searchText ? searchText.split(/\s+/).filter(w => w.length > 1) : [];
 
-    // Sonuçları dinamik ödül ve alaka düzeyine göre puanlıyoruz
     const formattedCampaigns = qualifiedCampaigns
       .map((campaign) => {
+        const combinedTextForTip = `${campaign.title} ${campaign.rawText}`.toLowerCase();
+
+        // ─── QR/Temassız ödeme yöntemi tespiti ───
+        const isQRorNFC = /qr\s*kod|qr\s*ile|qr\s*ödeme|karekod|nfc|mobil\s*temassız|mobil\s*temassiz/i.test(combinedTextForTip);
+        const isOnlineOnlyCampaign = /internette|internet\s*üzerinden|online\s*alışveriş|web\s*sitesi/i.test(combinedTextForTip);
+        const isPhysicalOnlyQR = isQRorNFC && !isOnlineOnlyCampaign;
+
+        // E-ticaret aramalarında fiziki POS gerektiren QR kampanyaları gösterilmez
+        if (isOnlineSearch && isPhysicalOnlyQR) {
+          return null;
+        }
+
+        // ─── Kampanyanın "Genel / Evrensel" mi yoksa "Sektöre Özel" mi olduğunu belirle ───
+        //
+        // Bir kampanya ANCAK aşağıdaki durumların birinde evrensel sayılır:
+        //   1. "her alışveriş / her harcama / sektör fark etmeksizin" gibi ifade içeriyorsa
+        //   2. "Diğer" kategorisinde ve spesifik sektör/marka adı YOKSA
+        //
+        // QR içermesi tek başına evrensellik ANLAMINA GELMEZ.
+        // "Shell'de QR ile ödeme" → Akaryakıt kategorisine özel, yemek aramasında çıkmamalı.
+        // "Tüm harcamalarınıza QR ile ekstra puan" → Genel, her kategoride çıkabilir.
+
+        const hasGeneralSpendKeywords = /her\s*(?:alışveriş|harcama)|alışverişlerinize|harcamalarınıza|sektör\s*fark\s*etmeksizin|sektör\s*dışı|tüm\s*(?:alışveriş|harcama|pos|üye\s*iş)/i.test(combinedTextForTip);
+
+        // Belirli bir sektöre/markaya bağlı kelimeler — bunlar varsa kampanya evrensel değildir
+        const nicheKeywordsRegex = /\b(akaryakıt|yakıt|benzin|mazot|motorin|otogaz|lpg|opet|shell|total|bp|petrol\s*ofisi|mobilya|dekorasyon|yapı\s*market|koçtaş|bauhaus|ikea|istikbal|bellona|kelebek|kitap|kırtasiye|eğitim|okul|kurs|üniversite|netflix|spotify|youtube|amazon|prime|sinema|tiyatro|konser|bilet|biletinial|oyun\s*platformu|gaming\s*platform|playstation|xbox|nintendo|steam|sigorta|vergi\s*ödeme|fatura|aidat|kira|tapu|bağış|sağlık|eczane|optik|kozmetik|petshop|veteriner|pet\s*shop|kuaför|berber|güzellik\s*merkezi|hastane|muayene|giyim|moda\s*marka|ayakkabı\s*(?:mağaza|markası)|aksesuar|otomotiv|lastik\s*(?:değişim|alım)|araç\s*bakım|araç\s*servis|araç\s*kiralama|rent\s*a\s*car|otel\s*(?:konakla|rezervasyon)|tatil\s*(?:paket|konaklama)|uçak\s*bileti|turizm\s*acent|seyahat\s*(?:acent|şirket)|elektronik\s*(?:mağaza|ürün)|beyaz\s*eşya|teknosa|mediamarkt|vatan\s*bilgisayar|migros|carrefour|şok\s*market|bim\b|a101|trendyol|hepsiburada|n11\.com|pazarama|çiçeksepeti)\b/i;
+
+        const hasNicheKeywords = nicheKeywordsRegex.test(combinedTextForTip);
+
+        // Kampanya kategorisi hedef kategoriye ait mi?
+        const isInTargetCategory = !targetCategoryId || campaign.categoryId === targetCategoryId;
+
+        // "Diğer" kategorisindeki genel kampanya: spesifik marka/sektör yoksa evrensel
+        const isDiğerUniversal = campaign.category.name === 'Diğer' && hasGeneralSpendKeywords && !hasNicheKeywords;
+
+        // QR içeren ama genel ifade taşıyan kampanya: evrensel
+        // Örn: "Tüm harcamalarınıza QR ile 50 TL bonus" → evrensel
+        // Örn: "Shell'de QR ile 50 TL bonus" → evrensel DEĞİL (niche kelime var)
+        const isQRUniversal = isQRorNFC && hasGeneralSpendKeywords && !hasNicheKeywords;
+
+        const isUniversalCampaign = isDiğerUniversal || isQRUniversal;
+
+        // ─── Kategori Filtresi ───
+        // Hedef kategori seçildiyse: kampanya ya o kategoriye ait olmalı ya da gerçekten evrensel olmalı
+        if (targetCategoryId && !isInTargetCategory && !isUniversalCampaign) {
+          return null;
+        }
+
+        // ─── Ödül Hesaplama ───
         let calculatedReward = campaign.rewardAmount;
         if (campaign.isPercentage) {
           calculatedReward = amount * (campaign.rewardAmount / 100);
@@ -136,19 +166,8 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Ödeme yöntemi ve ek puan ipucu tespiti
+        // ─── Ödeme yöntemi ipucu ───
         let paymentMethodTip: string | null = null;
-        const combinedTextForTip = `${campaign.title} ${campaign.rawText}`.toLowerCase();
-        
-        const isQRorNFC = /qr\s*kod|qr\s*ile|qr\s*ödeme|karekod|nfc|mobil\s*temassız|mobil\s*temassiz/i.test(combinedTextForTip);
-        const isOnlineOnlyCampaign = /internette|internet\s*üzerinden|online|web|dijital/i.test(combinedTextForTip);
-        const isPhysicalOnlyQR = isQRorNFC && !isOnlineOnlyCampaign;
-
-        // E-Ticaret / Online aramalarında fiziki POS gerektiren QR kampanyalarını hariç tutuyoruz
-        if (isOnlineSearch && isPhysicalOnlyQR) {
-          return null;
-        }
-
         if (isQRorNFC) {
           paymentMethodTip = '📱 QR Kod ile Ödeme Avantajı';
         } else if (/mobil\s*temassız|nfc|mobil\s*ödeme/i.test(combinedTextForTip)) {
@@ -159,24 +178,10 @@ export async function POST(req: NextRequest) {
           paymentMethodTip = '🟢 GarantiPay ile Ödeme Avantajı';
         }
 
-        const isFreePrivilege = campaign.minAmount === 0 || 
+        const isFreePrivilege = campaign.minAmount === 0 ||
           /\bücretsiz\b|\bbedava\b|hediye\s*ders|hediye\s*üyelik|hediye\s*prime/i.test(campaign.title.toLowerCase());
 
-        // Bu kampanya genel / her yerde geçerli bir kampanya mı?
-        const hasGeneralSpendKeywords = /her\s*(?:alışveriş|harcama)|alışverişlerinize|harcamalarınıza|sektör\s*fark\s*etmeksizin|sektör\s*dışı/i.test(combinedTextForTip);
-        
-        // Detaylı kısıtlayıcı sektör ve marka kelimeleri regex'i
-        const hasNicheKeywords = /kitap|kırtasiye|eğitim|okul|dijital\s*platform|netflix|spotify|youtube|amazon|prime|kültür|sanat|tiyatro|sinema|konser|bilet|biletinial|sigorta|vergi|mtv|motorlu\s*taşıt|fatura|aidat|kira|tapu|bağış|mobilya|dekorasyon|yapı\s*market|beyaz\s*eşya|optik|sağlık|eczane|otomotiv|lastik|servis|araç\s*kiralama|kiralama|otel|tatil|uçak|turizm|seyahat|giyim|ayakkabı|aksesuar|kozmetik|elektronik|teknoloji|akaryakıt|yakıt|benzin|istasyon|oyun|gaming|game|tasarım|yazılım|oto|yıkama|petshop|veteriner|pet|spa|kuaför|güzellik|hizmet|kargo|kurye|finans|kredi|porland|dyson|karaca|samsung|trendyol|hepsiburada|n11|getir|yemeksepeti|watsons|gratis|boyner|lcw|koton|zara|defacto|flo|ipekyol|hm|decathlon|ikea|uber|starbucks|kahve|mado|kahve\s*dünyası|ulaşım|metro|otobüs|minibüs|taksi|bitaksi|yolculuk/i.test(combinedTextForTip);
-
-        // Kampanyanın genel/universal olabilmesi için ya QR/NFC içermeli ya da "Diğer" kategorisinde olup kısıtlayıcı kelimeler içermemelidir
-        const isUniversalCampaign = isQRorNFC || (campaign.category.name === 'Diğer' && hasGeneralSpendKeywords && !hasNicheKeywords);
-
-        // Seçilen veya otomatik algılanan bir hedef kategori varsa ve kampanya bu kategoriye dahil değilse, universal (genel harcama) olmak zorundadır
-        if (targetCategoryId && campaign.categoryId !== targetCategoryId && !isUniversalCampaign) {
-          return null;
-        }
-
-        // Alaka düzeyi puanı hesaplama (Match Score)
+        // ─── Alaka Skoru (Match Score) ───
         let matchScore = 0;
         if (searchText) {
           const combinedSearchText = `${campaign.title} ${campaign.rawText} ${campaign.category.name} ${campaign.bank.name}`.toLowerCase();
@@ -192,13 +197,18 @@ export async function POST(req: NextRequest) {
             if (combinedSearchText.includes(word)) {
               matchScore += 20;
             }
-            // 3. Marka/Başlık eşleşmesi (Arama terimindeki kelime başlıktaysa büyük bonus)
+            // 3. Başlıkta eşleşme → büyük bonus
             if (titleLower.includes(word)) {
               matchScore += 500;
             }
           });
 
-          // 4. Genel/Universal kampanya ise aramada her zaman çıkabilmesi için taban puan
+          // 4. Hedef kategoriye ait kampanya → alaka bonusu
+          if (isInTargetCategory && targetCategoryId) {
+            matchScore += 30;
+          }
+
+          // 5. Evrensel kampanya taban puanı (arama varsa bile göster)
           if (matchScore === 0 && isUniversalCampaign) {
             matchScore = 10;
           }
@@ -243,7 +253,7 @@ export async function POST(req: NextRequest) {
       })
       .filter((c): c is any => c !== null);
 
-    // Sıralama kriteri: Önce en yüksek arama eşleşmesi (alaka), sonra en yüksek ödül
+    // Sıralama: önce alaka skoru, sonra ödül miktarı
     formattedCampaigns.sort((a, b) => b.matchScore - a.matchScore || b.calculatedReward - a.calculatedReward);
 
     let finalCampaigns = formattedCampaigns;
