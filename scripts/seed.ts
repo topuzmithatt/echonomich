@@ -5,58 +5,108 @@ import { prisma } from '../lib/prisma';
 // JSON dosya konumu
 const CAMPAIGNS_JSON_PATH = path.join(process.cwd(), 'campaigns.json');
 
+// Boş başlıkları URL veya alt başlıktan geri kazanan yardımcı fonksiyon
+function reconstructTitle(rawCamp: any): string {
+  let title = rawCamp.title ? rawCamp.title.trim() : '';
+  if (title) return title;
+
+  const subtitle = rawCamp.subtitle ? rawCamp.subtitle.trim() : '';
+  if (subtitle && !/kampanya|kampanyalar/i.test(subtitle)) {
+    return subtitle;
+  }
+
+  if (rawCamp.url) {
+    const parts = rawCamp.url.split('/');
+    let slug = parts[parts.length - 1] || parts[parts.length - 2];
+    if (slug) {
+      slug = slug
+        .replace(/-/g, ' ')
+        .replace(/\b\w/g, (l: string) => l.toUpperCase());
+      
+      slug = slug
+        .replace(/kampus/gi, 'Kampüs')
+        .replace(/modu/gi, 'Modu')
+        .replace(/ozel/gi, 'Özel')
+        .replace(/indirim/gi, 'İndirim')
+        .replace(/firsat/gi, 'Fırsat')
+        .replace(/kampanyasi/gi, 'Kampanyası')
+        .replace(/kampanyalari/gi, 'Kampanyaları')
+        .replace(/egitim/gi, 'Eğitim')
+        .replace(/saglik/gi, 'Sağlık')
+        .replace(/ulasim/gi, 'Ulaşım')
+        .replace(/odemeleri/gi, 'Ödemeleri');
+      return slug;
+    }
+  }
+
+  if (rawCamp.conditions && rawCamp.conditions.length > 0) {
+    const firstCond = rawCamp.conditions[0].trim();
+    if (firstCond.length > 5 && firstCond.length < 80) {
+      return firstCond;
+    }
+  }
+
+  return 'Özel Banka Kampanyası';
+}
+
 // Sektörleri ana kategorilere eşleyen yardımcı fonksiyon
 function mapSectorToCategory(sector: string, title: string): string {
   const combined = `${sector} ${title}`.toLowerCase();
   
-  // 1. Yapı market / İklimlendirme / Ev-Dekorasyon -> Diğer (Önce çalışmalı ki market kelimesiyle çakışmasın)
-  if (
-    combined.includes('yapı market') || 
-    combined.includes('iklimlendirme') || 
-    combined.includes('inşaat') || 
-    combined.includes('dekorasyon') || 
-    combined.includes('mobilya') ||
-    combined.includes('ısıtma') ||
-    combined.includes('soğutma') ||
-    combined.includes('yapı dekorasyon')
-  ) {
-    return 'Diğer';
-  }
-  
-  // 2. Akaryakıt / Otogaz / Yakıt / İstasyon
-  if (combined.includes('akaryakıt') || combined.includes('otogaz') || combined.includes('yakıt') || combined.includes('istasyon')) {
+  if (/akaryakıt|otogaz|yakıt|istasyon|petrol|opet|shell|total|bp|m oil/i.test(combined)) {
     return 'Akaryakıt';
   }
-  
-  // 3. Market / Gıda / Süpermarket / Restoran / Yemek / Kafe / Cafe / Şarküteri
-  if (
-    combined.includes('market') || 
-    combined.includes('gıda') || 
-    combined.includes('süpermarket') || 
-    combined.includes('restoran') || 
-    combined.includes('yemek') || 
-    combined.includes('kafe') || 
-    combined.includes('cafe') ||
-    combined.includes('şarküteri')
-  ) {
+
+  // Yemek & Restoran
+  if (/restoran|yemek|kafe|cafe|fast\s*food|lokanta|pastane|mado|starbucks|kahve|döner|burger|pizza/i.test(combined)) {
+    return 'Yemek & Restoran';
+  }
+
+  // Market
+  if (/market|süpermarket|gıda|şarküteri|manav|kasap|migros|carrefour|şok|bim|a101|tekel|getir|istegelsin/i.test(combined)) {
     return 'Market';
   }
-  
-  // 4. Seyahat / Turizm / Otel / Tatil / Uçak / Tur / Konaklama
-  if (combined.includes('seyahat') || combined.includes('turizm') || combined.includes('otel') || combined.includes('tatil') || combined.includes('uçak') || combined.includes('tur') || combined.includes('konaklama')) {
-    return 'Seyahat';
+
+  // Seyahat & Turizm
+  if (/seyahat|turizm|otel|tatil|uçak|tur|konaklama|kiralama|rent\s*a\s*car|havayolu|havayolları|pegasus|thy|ets\s*tur|jolly|turna|uçuş|biletinial\s*travel/i.test(combined)) {
+    return 'Seyahat & Turizm';
   }
-  
-  // 5. Giyim / Moda / Aksesuar / Ayakkabı / Kozmetik
-  if (combined.includes('giyim') || combined.includes('moda') || combined.includes('aksesuar') || combined.includes('ayakkabı') || combined.includes('kozmetik')) {
-    return 'Giyim';
+
+  // Giyim & Aksesuar
+  if (/giyim|moda|aksesuar|ayakkabı|saat|kuyum|mücevher|elbise|pantolon|mont|derimod|tergan|ltb|zara|boyner|koton|defacto|flo|ipekyol|h&m/i.test(combined)) {
+    return 'Giyim & Aksesuar';
   }
-  
-  // 6. Elektronik / Teknoloji / Beyaz Eşya / Telefon / Bilgisayar / Tv / Cihaz
-  if (combined.includes('elektronik') || combined.includes('teknoloji') || combined.includes('beyaz eşya') || combined.includes('telefon') || combined.includes('bilgisayar') || combined.includes('cihaz')) {
-    return 'Elektronik';
+
+  // E-Ticaret
+  if (/e-ticaret|eticaret|trendyol|hepsiburada|n11|amazon|pazarama|ciceksepeti|çiçeksepeti|sanal\s*market|sanal\s*mağaza|online\s*alışveriş|pazarama/i.test(combined)) {
+    return 'E-Ticaret';
   }
-  
+
+  // Elektronik & Beyaz Eşya
+  if (/elektronik|teknoloji|beyaz\s*eşya|telefon|bilgisayar|tv|cihaz|mediamarkt|teknosa|vatan\s*bilgisayar|samsung|dyson|klima|kombi|viessmann|arçelik|beko|bosch/i.test(combined)) {
+    return 'Elektronik & Beyaz Eşya';
+  }
+
+  // Eğitim & Kırtasiye
+  if (/eğitim|okul|kitap|kırtasiye|kurs|üniversite|kolej|akademik|ebscohost|rosetta|novakid|ders/i.test(combined)) {
+    return 'Eğitim & Kırtasiye';
+  }
+
+  // Ev, Dekorasyon & Yapı Market
+  if (/mobilya|dekorasyon|yapı\s*market|inşaat|ısıtma|soğutma|ev\s*tekstili|züccaciye|porland|karaca|koçtaş|bauhaus|ikea|istikbal|bellona|kelebek/i.test(combined)) {
+    return 'Ev, Dekorasyon & Yapı Market';
+  }
+
+  // Sağlık & Kozmetik
+  if (/sağlık|eczane|optik|kozmetik|petshop|veteriner|pet|güzellik|kuaför|berber|diş|hastane|muayene|gratis|watsons|sephora|rossmann/i.test(combined)) {
+    return 'Sağlık & Kozmetik';
+  }
+
+  // Kültür, Sanat & Eğlence
+  if (/kültür|sanat|sinema|tiyatro|konser|bilet|biletinial|oyun|gaming|game|playstation|xbox|nintendo|steam|pubg|etkinlik|müze|dijital\s*platform|netflix|spotify|youtube/i.test(combined)) {
+    return 'Kültür, Sanat & Eğlence';
+  }
+
   return 'Diğer';
 }
 
@@ -187,9 +237,12 @@ async function main() {
   for (let i = 0; i < campaignsList.length; i++) {
     const rawCamp = campaignsList[i];
     
+    // Akıllı başlık kurtarma/temizleme
+    const cleanTitle = reconstructTitle(rawCamp);
+
     // Kampanya koşullarını tek metin yap
     const rawTextContent = `
-Başlık: ${rawCamp.title}
+Başlık: ${cleanTitle}
 Özet: ${rawCamp.subtitle || ''}
 Sektör: ${rawCamp.sector || ''}
 Geçerlilik Tarihi: ${rawCamp.dateRange || ''}
@@ -200,11 +253,11 @@ ${rawCamp.conditions.join('\n')}
 
     // Akıllı Heuristic Parsing
     const bankName = rawCamp.bank || "Ziraat Bankası";
-    const categoryName = mapSectorToCategory(rawCamp.sector || '', rawCamp.title);
-    const minAmount = extractMinAmount(rawCamp.title, rawCamp.subtitle || '', rawCamp.conditions);
+    const categoryName = mapSectorToCategory(rawCamp.sector || '', cleanTitle);
+    const minAmount = extractMinAmount(cleanTitle, rawCamp.subtitle || '', rawCamp.conditions);
     
     // Yüzdelik oran kontrolü
-    const combinedTextForPercent = [rawCamp.title, rawCamp.subtitle || '', ...rawCamp.conditions].join(' ');
+    const combinedTextForPercent = [cleanTitle, rawCamp.subtitle || '', ...rawCamp.conditions].join(' ');
     const percentMatch = combinedTextForPercent.match(/%\s*(\d+)/i);
     
     let isPercentage = false;
@@ -217,7 +270,7 @@ ${rawCamp.conditions.join('\n')}
       maxAmount = extractMaxAmount(rawCamp.conditions);
     } else {
       isPercentage = false;
-      rewardAmount = extractRewardAmount(rawCamp.title, rawCamp.subtitle || '', rawCamp.conditions);
+      rewardAmount = extractRewardAmount(cleanTitle, rawCamp.subtitle || '', rawCamp.conditions);
     }
     
     // Koşul kontrolleri
@@ -258,7 +311,7 @@ ${rawCamp.conditions.join('\n')}
 
         await tx.campaign.create({
           data: {
-            title: rawCamp.title,
+            title: cleanTitle,
             rawText: rawTextContent,
             minAmount: minAmount,
             maxAmount: maxAmount,
@@ -274,7 +327,7 @@ ${rawCamp.conditions.join('\n')}
       });
       successCount++;
     } catch (err: any) {
-      console.error(`[HATA] "${rawCamp.title}" kaydedilirken hata oluştu:`, err.message);
+      console.error(`[HATA] "${cleanTitle}" kaydedilirken hata oluştu:`, err.message);
     }
   }
 

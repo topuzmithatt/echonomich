@@ -43,17 +43,35 @@ export async function POST(req: NextRequest) {
       if (/(akaryakit|akaryakıt|yakit|yakıt|benzin|mazot|motorin|otogaz|istasyon|lpg|opet|shell|total|bp|petrol)/i.test(searchText)) {
         const found = categories.find(c => c.name === 'Akaryakıt');
         if (found) targetCategoryId = found.id;
-      } else if (/(market|gida|gıda|süpermarket|supermarket|migros|sok|şok|bim|a101|carrefour|restoran|yemek|kafe|cafe|pizza|burger|yemeksepeti|getir)/i.test(searchText)) {
+      } else if (/(restoran|yemek|kafe|cafe|pizza|burger|yemeksepeti|lokanta|döner|pastane|mado|starbucks|kahve|fast\s*food)/i.test(searchText)) {
+        const found = categories.find(c => c.name === 'Yemek & Restoran');
+        if (found) targetCategoryId = found.id;
+      } else if (/(market|gida|gıda|süpermarket|supermarket|migros|sok|şok|bim|a101|carrefour|getir|şarküteri|manav|kasap|istegelsin)/i.test(searchText)) {
         const found = categories.find(c => c.name === 'Market');
         if (found) targetCategoryId = found.id;
-      } else if (/(seyahat|turizm|otel|tatil|ucak|uçak|bilet|tur|konaklama|touristica|coral|jolly|ets)/i.test(searchText)) {
-        const found = categories.find(c => c.name === 'Seyahat');
+      } else if (/(seyahat|turizm|otel|tatil|ucak|uçak|tur|konaklama|touristica|coral|jolly|ets|fly|uçuş|kiralama|rent\s*a\s*car|havayolu|thy|pegasus|turna)/i.test(searchText)) {
+        const found = categories.find(c => c.name === 'Seyahat & Turizm');
         if (found) targetCategoryId = found.id;
-      } else if (/(giyim|moda|aksesuar|ayakkabi|ayakkabı|koton|lcw|zara|derimod|flo|boyner)/i.test(searchText)) {
-        const found = categories.find(c => c.name === 'Giyim');
+      } else if (/(giyim|moda|aksesuar|ayakkabi|ayakkabı|koton|lcw|zara|derimod|flo|boyner|kuyum|mücevher|elbise|pantolon|mont|lc\s*waikiki|defacto)/i.test(searchText)) {
+        const found = categories.find(c => c.name === 'Giyim & Aksesuar');
         if (found) targetCategoryId = found.id;
-      } else if (/(elektronik|teknoloji|beyaz esya|beyaz eşya|telefon|bilgisayar|tv|televizyon|klima|vatan|teknosa|mediamarkt|daikin)/i.test(searchText)) {
-        const found = categories.find(c => c.name === 'Elektronik');
+      } else if (/(trendyol|hepsiburada|n11|amazon|pazarama|ciceksepeti|çiçeksepeti|e-ticaret|eticaret|online\s*alisveris|online\s*alışveriş)/i.test(searchText)) {
+        const found = categories.find(c => c.name === 'E-Ticaret');
+        if (found) targetCategoryId = found.id;
+      } else if (/(elektronik|teknoloji|beyaz esya|beyaz eşya|telefon|bilgisayar|tv|televizyon|mediamarkt|teknosa|vatan|samsung|dyson|klima|kombi|viessmann|arçelik|beko|bosch)/i.test(searchText)) {
+        const found = categories.find(c => c.name === 'Elektronik & Beyaz Eşya');
+        if (found) targetCategoryId = found.id;
+      } else if (/(eğitim|egitim|okul|kitap|kırtasiye|kirtasiye|kurs|üniversite|universite|kolej|akademik|ders)/i.test(searchText)) {
+        const found = categories.find(c => c.name === 'Eğitim & Kırtasiye');
+        if (found) targetCategoryId = found.id;
+      } else if (/(mobilya|dekorasyon|yapi\s*market|yapı\s*market|inşaat|ısıtma|soğutma|ev\s*tekstili|züccaciye|porland|karaca|koçtaş|koctas|bauhaus|ikea|istikbal|bellona|kelebek)/i.test(searchText)) {
+        const found = categories.find(c => c.name === 'Ev, Dekorasyon & Yapı Market');
+        if (found) targetCategoryId = found.id;
+      } else if (/(sağlık|saglik|eczane|optik|kozmetik|petshop|veteriner|pet|güzellik|kuaför|berber|diş|hastane|muayene|gratis|watsons|sephora|rossmann)/i.test(searchText)) {
+        const found = categories.find(c => c.name === 'Sağlık & Kozmetik');
+        if (found) targetCategoryId = found.id;
+      } else if (/(kültür|sanat|sinema|tiyatro|konser|bilet|biletinial|oyun|gaming|game|playstation|xbox|nintendo|steam|pubg|etkinlik|müze|eğlence|eglence)/i.test(searchText)) {
+        const found = categories.find(c => c.name === 'Kültür, Sanat & Eğlence');
         if (found) targetCategoryId = found.id;
       }
     }

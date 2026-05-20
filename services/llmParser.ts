@@ -30,7 +30,7 @@ JSON Şeması:
 {
   "title": "Kampanyanın kısa, net ve anlaşılır başlığı",
   "bankName": "Kampanyayı sunan bankanın adı (Örn: 'Ziraat Bankası')",
-  "categoryName": "Kampanyanın geçerli olduğu ana harcama sektörü/kategorisi. Yalnızca şu sektörlerden birini seçmelisin: 'Akaryakıt', 'Market', 'Seyahat', 'Giyim', 'Elektronik', 'Diğer'",
+  "categoryName": "Kampanyanın geçerli olduğu ana harcama sektörü/kategorisi. Yalnızca şu sektörlerden birini seçmelisin: 'Akaryakıt', 'Market', 'Yemek & Restoran', 'Seyahat & Turizm', 'Giyim & Aksesuar', 'Elektronik & Beyaz Eşya', 'E-Ticaret', 'Eğitim & Kırtasiye', 'Ev, Dekorasyon & Yapı Market', 'Sağlık & Kozmetik', 'Kültür, Sanat & Eğlence', 'Diğer'",
   "minAmount": 1500.00, // Kampanyadan yararlanmak için yapılması gereken minimum harcama tutarı. Eğer metinde net bir tutar yoksa veya her harcamaya puan veriliyorsa 0 yaz.
   "maxAmount": 5000.00, // Kampanyanın geçerli olduğu maksimum harcama limiti. Eğer metinde belirtilmemişse null yaz.
   "rewardAmount": 400.00, // Kullanıcının kazanacağı maksimum ödül miktarı (puan, indirim veya nakit iade cinsinden net tutar). Eğer metinde yazmıyorsa veya yüzdelik indirim ise hesaplanabilir bir taban miktar veya 0 yaz.
@@ -42,7 +42,7 @@ JSON Şeması:
 Kurallar:
 1. Para birimlerini ve tutarları sadece sayısal (float/number) değerler olarak ayıkla (Örn: "1.400 TL" -> 1400.00).
 2. Metin içinde birden fazla harcama kademesi varsa (örneğin 45.000 TL'ye 2.500 TL, 70.000 TL'ye 5.500 TL, 120.000 TL'ye 8.500 TL), minAmount olarak EN DÜŞÜK harcama limitini (45000.00), rewardAmount olarak ise EN YÜKSEK kazanılabilecek ödülü (8500.00) yaz.
-3. Kategori adı (categoryName) mutlaka şu değerlerden biri olmalıdır: 'Akaryakıt', 'Market', 'Seyahat', 'Giyim', 'Elektronik', 'Diğer'. Eşleşmeyen tüm sektörler için 'Diğer' değerini seç.
+3. Kategori adı (categoryName) mutlaka şu değerlerden biri olmalıdır: 'Akaryakıt', 'Market', 'Yemek & Restoran', 'Seyahat & Turizm', 'Giyim & Aksesuar', 'Elektronik & Beyaz Eşya', 'E-Ticaret', 'Eğitim & Kırtasiye', 'Ev, Dekorasyon & Yapı Market', 'Sağlık & Kozmetik', 'Kültür, Sanat & Eğlence', 'Diğer'. Eşleşmeyen tüm sektörler için 'Diğer' değerini seç.
 4. Yanıt olarak sadece JSON objesini döndür. Markdown etiketleri (\`\`\`json) veya başka herhangi bir açıklayıcı metin ekleme.
 `;
 

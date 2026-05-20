@@ -20,9 +20,15 @@ export default async function HomePage() {
         data: [
           { name: 'Akaryakıt' },
           { name: 'Market' },
-          { name: 'Seyahat' },
-          { name: 'Giyim' },
-          { name: 'Elektronik' },
+          { name: 'Yemek & Restoran' },
+          { name: 'Seyahat & Turizm' },
+          { name: 'Giyim & Aksesuar' },
+          { name: 'Elektronik & Beyaz Eşya' },
+          { name: 'E-Ticaret' },
+          { name: 'Eğitim & Kırtasiye' },
+          { name: 'Ev, Dekorasyon & Yapı Market' },
+          { name: 'Sağlık & Kozmetik' },
+          { name: 'Kültür, Sanat & Eğlence' },
           { name: 'Diğer' },
         ],
       });
