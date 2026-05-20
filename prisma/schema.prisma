@@ -1,0 +1,90 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Bank {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  campaigns Campaign[]
+  cards     Card[]
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  campaigns Campaign[]
+}
+
+model Campaign {
+  id                   String         @id @default(cuid())
+  title                String
+  rawText              String
+  minAmount            Float
+  maxAmount            Float?
+  rewardAmount         Float
+  isNewCustomerOnly    Boolean        @default(false)
+  requiresEnrollment   Boolean        @default(false)
+  rewardType           String // Mapped to String to support SQLite. Valid options: POINT, CASHBACK, DISCOUNT, INSTALLMENT
+  isPercentage         Boolean        @default(false)
+  bankId               String
+  bank                 Bank           @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  categoryId           String
+  category             Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  campaignCards        CampaignCard[]
+}
+
+model Card {
+  id            String         @id @default(cuid())
+  name          String
+  bankId        String
+  bank          Bank           @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  userCards     UserCard[]
+  campaignCards CampaignCard[]
+
+  @@unique([bankId, name])
+}
+
+model CampaignCard {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  cardId     String
+  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([campaignId, cardId])
+}
+
+model User {
+  id        String     @id @default(cuid())
+  username  String     @unique
+  password  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  userCards UserCard[]
+}
+
+model UserCard {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardId    String
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, cardId])
+}
+

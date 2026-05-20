@@ -1,0 +1,36 @@
+{
+  "name": "scraping-poc",
+  "version": "1.0.0",
+  "description": "Scraping PoC using Puppeteer Extra Stealth",
+  "main": "scrape.js",
+  "scripts": {
+    "start": "node scrape.js",
+    "dev": "next dev",
+    "build": "next build",
+    "prisma:generate": "prisma generate",
+    "seed": "npx tsx scripts/seed.ts",
+    "scrape": "node scripts/scrapers/run-all.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.14.0",
+    "bcryptjs": "^3.0.3",
+    "cookie": "^1.1.1",
+    "jsonwebtoken": "^9.0.3",
+    "next": "^14.2.3",
+    "openai": "^4.47.1",
+    "puppeteer": "^22.10.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^20.12.12",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "prisma": "^5.14.0",
+    "typescript": "^5.4.5"
+  }
+}
