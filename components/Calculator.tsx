@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AuthModal from './AuthModal';
 import CardManager from './CardManager';
 
@@ -79,6 +79,21 @@ export default function Calculator({ categories, initialUser, campaignCount, ban
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [showCardManager, setShowCardManager] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'owned' | 'opportunities'>('owned');
+  const [showUserDropdown, setShowUserDropdown] = useState<boolean>(false);
+
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowUserDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -149,34 +164,75 @@ export default function Calculator({ categories, initialUser, campaignCount, ban
             {user ? 'Kişiselleştirilmiş' : 'Çoklu Banka Destekli'}
           </span>
         </div>
-        <div className="auth-buttons-container">
+        <div className="auth-buttons-container" ref={dropdownRef}>
           {user ? (
-            <>
-              <span style={{ fontSize: '0.9rem', color: '#e4e4e7', marginRight: '0.5rem' }}>
-                👋 Hoş geldin, <strong>{user.username}</strong>
-              </span>
+            <div className="user-menu-container">
               <button 
                 type="button"
-                className="btn-auth-header primary"
-                onClick={() => setShowCardManager(true)}
+                className="user-menu-trigger"
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
+                title="Kullanıcı Menüsü"
+                aria-label="Kullanıcı Menüsü"
               >
-                💳 Kartlarım ({user.cards.length})
+                <span className="user-avatar-initials">
+                  {user.username.split('@')[0].substring(0, 2).toUpperCase()}
+                </span>
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  viewBox="0 0 24 24" 
+                  fill="currentColor" 
+                  className="user-avatar-icon"
+                >
+                  <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
+                </svg>
               </button>
-              <button 
-                type="button"
-                className="btn-auth-header" 
-                onClick={handleLogout}
-              >
-                Çıkış Yap
-              </button>
-            </>
+
+              {showUserDropdown && (
+                <div className="user-dropdown-menu glass-card">
+                  <div className="user-dropdown-header">
+                    <div className="user-dropdown-welcome">👋 Hoş geldin,</div>
+                    <div className="user-dropdown-email" title={user.username}>{user.username}</div>
+                  </div>
+                  <div className="dropdown-divider" />
+                  <button 
+                    type="button"
+                    className="dropdown-item"
+                    onClick={() => {
+                      setShowCardManager(true);
+                      setShowUserDropdown(false);
+                    }}
+                  >
+                    💳 Kartlarım ({user.cards.length})
+                  </button>
+                  <button 
+                    type="button"
+                    className="dropdown-item logout"
+                    onClick={() => {
+                      handleLogout();
+                      setShowUserDropdown(false);
+                    }}
+                  >
+                    🚪 Çıkış Yap
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
             <button 
               type="button"
               className="btn-auth-header primary"
               onClick={() => setShowAuthModal(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
             >
-              Giriş Yap / Kayıt Ol
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 24 24" 
+                fill="currentColor" 
+                style={{ width: '16px', height: '16px' }}
+              >
+                <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
+              </svg>
+              <span>Giriş Yap / Kayıt Ol</span>
             </button>
           )}
         </div>
