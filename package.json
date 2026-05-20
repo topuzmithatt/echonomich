@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node scrape.js",
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "prisma:generate": "prisma generate",
     "seed": "npx tsx scripts/seed.ts",
     "scrape": "node scripts/scrapers/run-all.js"
